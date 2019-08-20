@@ -2,11 +2,14 @@ package core
 
 @ExperimentalUnsignedTypes
 object Cpu {
+    /**
+     * A sub-object of the CPU used for maintaining register states.
+     */
     object Registers {
 
         private val registerMap = mutableMapOf<Char, UByte>()
-        var stackPointer: UShort = 0x0000u
-        var programCounter: UShort = 0x0000u
+        private var stackPointer: UShort = 0x0000u
+        private var programCounter: UShort = 0x0000u
 
         init {
             // Set the startup register values here.
@@ -20,6 +23,24 @@ object Cpu {
             registerMap['l'] = 0x4Du
 
             stackPointer = 0xFFFEu
+        }
+
+        // Basic getters and setters
+
+        fun getStackPointer(): UShort {
+            return stackPointer
+        }
+
+        fun setStackPointer(data: UShort) {
+            stackPointer = data
+        }
+
+        fun getProgramCounter(): UShort {
+            return programCounter
+        }
+
+        fun setProgramCounter(data: UShort) {
+            programCounter = data
         }
 
         /**
@@ -85,4 +106,6 @@ object Cpu {
             return regData
         }
     }
+
+
 }
