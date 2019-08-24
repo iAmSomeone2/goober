@@ -7,6 +7,13 @@ package core
  */
 object MemoryManager {
 
+    private val CART_TYPE_MAP = mapOf(
+        Pair<UByte, String>(0x00u, "ROM_ONLY"),
+        Pair<UByte, String>(0x01u, "MBC1"),
+        Pair<UByte, String>(0x02u, "MBC1+RAM"),
+        Pair<UByte, String>(0x00u, "ROM_ONLY")
+    )
+
     // TODO: Set up functionality to export all memory as a save state.
 
     /**
