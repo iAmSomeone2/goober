@@ -7,6 +7,8 @@ package core
  */
 object MemoryManager {
 
+    // TODO: Set up functionality to export all memory as a save state.
+
     /**
      * The address space mapped to the game cartridge or other programs. This section is divided up into two sub-
      * sections, logically: 16KB ROM bank 00 and 16KB ROM bank 01~NN. The latter of these can be switched out with other
@@ -25,6 +27,13 @@ object MemoryManager {
                 val location = (addr - 0x4000u).toInt()
                 bankEX[location]
             }
+        }
+
+        /**
+         * Sets which memory bank to use in place of bankEX
+         */
+        fun setBank(bankNum: UInt) {
+            TODO()
         }
     }
 
@@ -51,6 +60,9 @@ object MemoryManager {
     private object ExternalRAM {
         private val exRAM = UByteArray(8192)
 
+        // TODO: Take switchable banking into account
+        // TODO: Set up functionality to export exRAM as a binary save file
+
         fun read(addr: UShort): UByte {
             val location = (addr - 0xA000u).toInt()
             return exRAM[location]
@@ -72,27 +84,86 @@ object MemoryManager {
         private val echo = UByteArray(7680)
 
         fun read(addr: UShort): UByte {
-            val data: UByte
-
-            if (addr >= 0xC000u && addr <= 0xCFFFu) {
-                // Bank 0
-                val location = (addr - 0xC000u).toInt()
-                data = bank0[location]
-            } else if (addr >= 0xD000u && addr <= 0xDFFFu) {
-                // Bank N
-                val location = (addr - 0xD000u).toInt()
-                data = bankN[location]
-            } else {
-                // Echo
-                val location = (addr - 0xE000u).toInt()
-                data = echo[location]
+            return when (addr) {
+                in 0xC000u..0xCFFFu -> {
+                    // Bank 0
+                    val location = (addr - 0xC000u).toInt()
+                    bank0[location]
+                }
+                in 0xD000u..0xDFFFu -> {
+                    // Bank N
+                    val location = (addr - 0xD000u).toInt()
+                    bankN[location]
+                }
+                else -> {
+                    // Echo
+                    val location = (addr - 0xE000u).toInt()
+                    echo[location]
+                }
             }
-
-            return data
         }
 
+        /**
+         * Helper function for handling ECHO RAM without getting into a loop.
+         * @param addr location to write to.
+         * @param data value to write
+         */
+        private fun echo(addr: UShort, data: UByte) {
+            val location: Int
+            when (addr) {
+                in 0xC000u..0xDDFFu -> {
+                    // Write into ECHO RAM
+                    location = (addr-0xC000u).toInt()
+                    echo[location] = data
+                }
+                in 0xE000u..0xEFFFu -> {
+                    // Write into first bank
+                    location = (addr-0xE000u).toInt()
+                    bank0[location] = data
+                }
+                in 0xF000u..0xFDFFu -> {
+                    // Write into switchable bank
+                    location = (addr-0xF000u).toInt()
+                    bankN[location] = data
+                }
+            }
+        }
+
+        /**
+         * Writes a single-byte value to the specified address in work RAM.
+         * ECHO RAM is taken into account and copied appropriately.
+         * @param addr location to write to
+         * @param data value to write
+         */
         fun write(addr: UShort, data: UByte) {
-            TODO() // Take the echo into account
+            when (addr) {
+                in 0xC000u..0xCFFFu -> {
+                    // Bank 0
+                    val location = (addr - 0xC000u).toInt()
+                    bank0[location] = data
+                    // Anything in this bank should be copied to echo
+                    echo(addr, data)
+                }
+                in 0xD000u..0xDFFFu -> {
+                    // Bank N
+                    val location = (addr - 0xD000u).toInt()
+                    bankN[location] = data
+
+                    if (addr <= 0xDDFFu) {
+                        // Copy anything from these addresses into echo
+                        echo(addr, data)
+                    }
+                }
+                in 0xE000u..0xFDFFu -> {
+                    // Echo
+                    val location = (addr - 0xE000u).toInt()
+                    echo[location] = data
+                    // Anything written here needs to be echoed into the address 0x2000 lower
+                    echo(addr, data)
+                }
+
+                else -> error("Program tried to access invalid RAM @ ${addr.toUShort()}")
+            }
         }
     }
 
@@ -141,4 +212,53 @@ object MemoryManager {
     private val workRam = WorkRAM
     private val spriteTab = SpriteAttribTable
     private val ioReg = IORegisters
+
+    /**
+     * Finds and returns the value from the specified memory address.
+     * @param addr memory address to read from
+     * @return UByte value from specified memory address
+     */
+    fun readByte(addr: UShort): UByte {
+        return when (addr) {
+            in 0x0000u..0x7FFFu -> {
+                // Read from ROM
+                rom.read(addr)
+            }
+            in 0x8000u..0x9FFFu -> {
+                // Read from vRAM
+                vRam.read(addr)
+            }
+            in 0xA000u..0xBFFFu -> {
+                // Read from External RAM
+                exRam.read(addr)
+            }
+            in 0xC000u..0xFDFFu -> {
+                // Read from workRAM
+                workRam.read(addr)
+            }
+            in 0xFE00u..0xFE9Fu -> {
+                // Read from Sprite Attribute Table
+                spriteTab.read(addr)
+            }
+            in 0xFEA0u..0xFEFFu -> {
+                // Unusable address space
+                println("WARN: Program tried to access unusable value @ ${addr.toUShort()}")
+                0x00u
+            }
+            in 0xFF00u..0xFF7Fu -> {
+                // Read from I/O
+                ioReg.read(addr)
+            }
+            in 0xFF80u..0xFFFEu -> {
+                // Read from High RAM (HRAM)
+                val location = (addr - 0xFF80u).toInt()
+                highRAM[location]
+            }
+            0xFFFFu.toUShort() -> {  // Sometimes Kotlin is weird about type inference
+                intEnableReg
+            }
+
+            else -> error("Tried to access an address that doesn't exist: ${addr.toUShort()}")
+        }
+    }
 }
