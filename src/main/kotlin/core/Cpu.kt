@@ -107,5 +107,63 @@ object Cpu {
         }
     }
 
+    private val registers = Registers
+    private val memory = MemoryManager
 
+    /**
+     * Loads a value from one register into another
+     * @param outReg the register to write to
+     * @param inReg the register to read from
+     */
+    private fun load8BitReg(outReg: Char, inReg: Char) {
+        TODO()
+    }
+
+    private fun load8BitVal(output: String, input: String) {
+        TODO()
+    }
+
+    /**
+     * Loads the value from the I/O port specified into register A.
+     * @param port port number to read from
+     * @return number of ticks for operation to complete
+     */
+    private fun readIO(port: UByte): Int {
+        // Do not forget to add FF00 to the port number.
+        val location: UShort = (0xFF00u + port).toUShort()
+        registers.setRegister('a', memory.readByte(location))
+        return 12
+    }
+
+    /**
+     * Loads the value from the I/O port specified by register C into register A.
+     * @return number of ticks for operation to complete
+     */
+    private fun readIO(): Int {
+        // Do not forget to add FF00 to the value from C
+        val location: UShort = (0xFF00u + registers.readRegister('c')).toUShort()
+        registers.setRegister('a', memory.readByte(location))
+        return 8
+    }
+
+    /**
+     * Writes the contents of register A to the specified I/O port
+     * @param port port number to write to
+     * @return number of ticks for operation to complete
+     */
+    private fun writeIO(port: UByte): Int {
+        val location: UShort = (0xFF00u + port).toUShort()
+        memory.writeByte(location, registers.readRegister('a'))
+        return 12
+    }
+
+    /**
+     * Writes the contents of register A to the I/O port specified by register C
+     * @return number of ticks for operation to complete
+     */
+    private fun writeIO(): Int {
+        val location: UShort = (0xFF00u + registers.readRegister('c')).toUShort()
+        memory.writeByte(location, registers.readRegister('a'))
+        return 8
+    }
 }

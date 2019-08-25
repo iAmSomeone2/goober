@@ -11,7 +11,58 @@ object MemoryManager {
         Pair<UByte, String>(0x00u, "ROM_ONLY"),
         Pair<UByte, String>(0x01u, "MBC1"),
         Pair<UByte, String>(0x02u, "MBC1+RAM"),
-        Pair<UByte, String>(0x00u, "ROM_ONLY")
+        Pair<UByte, String>(0x03u, "MBC1+RAM+BAT"),
+        Pair<UByte, String>(0x05u, "MBC2"),
+        Pair<UByte, String>(0x06u, "MBC2+BAT"),
+        Pair<UByte, String>(0x08u, "ROM+RAM"),
+        Pair<UByte, String>(0x09u, "ROM+RAM+BAT"),
+        Pair<UByte, String>(0x0Bu, "MMM01"),
+        Pair<UByte, String>(0x0Cu, "MMM01+RAM"),
+        Pair<UByte, String>(0x0Du, "MMM01+RAM+BAT"),
+        Pair<UByte, String>(0x0Fu, "MBC3+TIMER+BAT"),
+        Pair<UByte, String>(0x10u, "MBC3+TIMER+RAM+BAT"),
+        Pair<UByte, String>(0x11u, "MBC3"),
+        Pair<UByte, String>(0x12u, "MBC3+RAM"),
+        Pair<UByte, String>(0x13u, "MBC3+RAM+BAT"),
+        Pair<UByte, String>(0x19u, "MBC5"),
+        Pair<UByte, String>(0x1Au, "MBC5+RAM"),
+        Pair<UByte, String>(0x1Bu, "MBC5+RAM+BAT"),
+        Pair<UByte, String>(0x1Cu, "MBC5+RUMBLE"),
+        Pair<UByte, String>(0x1Du, "MBC5+RUMBLE+RAM"),
+        Pair<UByte, String>(0x1Eu, "MBC5+RUMBLE+RAM+BAT"),
+        Pair<UByte, String>(0x20u, "MBC6"),
+        Pair<UByte, String>(0x22u, "MBC7+SENSOR+RUMBLE+RAM+BAT"),
+        Pair<UByte, String>(0xFCu, "CAMERA"),
+        Pair<UByte, String>(0xFDu, "BANDAI_TAMA5"),
+        Pair<UByte, String>(0xFEu, "HuC3"),
+        Pair<UByte, String>(0xFFu, "HuC1+RAM+BAT")
+    )
+
+    // Values for ROM_BANK_MAP are the number of banks the ROM requires.
+    private val ROM_BANK_MAP = mapOf(
+        Pair<UByte, Int>(0x00u, 0),
+        Pair<UByte, Int>(0x01u, 4),
+        Pair<UByte, Int>(0x02u, 8),
+        Pair<UByte, Int>(0x03u, 16),
+        Pair<UByte, Int>(0x04u, 32),
+        Pair<UByte, Int>(0x05u, 64),
+        Pair<UByte, Int>(0x06u, 128),
+        Pair<UByte, Int>(0x07u, 256),
+        Pair<UByte, Int>(0x08u, 512),
+        Pair<UByte, Int>(0x52u, 72),
+        Pair<UByte, Int>(0x53u, 80),
+        Pair<UByte, Int>(0x54u, 96)
+    )
+
+    // Values for RAM_SIZE_MAP are in kilobytes.
+    // To get number of banks, divide the value by 8.
+    private val RAM_SIZE_MAP = mapOf(
+        Pair<UByte, Int>(0x00u, 0),
+        Pair<UByte, Int>(0x01u, 2),
+        Pair<UByte, Int>(0x02u, 8),
+        Pair<UByte, Int>(0x03u, 32),
+        Pair<UByte, Int>(0x04u, 128),
+        Pair<UByte, Int>(0x05u, 64)
     )
 
     // TODO: Set up functionality to export all memory as a save state.
@@ -65,9 +116,27 @@ object MemoryManager {
      * 8KB of bank-switchable RAM located on the cartridge.
      */
     private object ExternalRAM {
-        private val exRAM = UByteArray(8192)
+        private val exRamBanks = mutableListOf(
+            UByteArray(8192),       // Bank 00
+            UByteArray(8192),       // Bank 01
+            UByteArray(8192),       // Bank 02
+            UByteArray(8192),       // Bank 03
+            UByteArray(8192),       // Bank 04
+            UByteArray(8192),       // Bank 05
+            UByteArray(8192),       // Bank 06
+            UByteArray(8192),       // Bank 07
+            UByteArray(8192),       // Bank 08
+            UByteArray(8192),       // Bank 09
+            UByteArray(8192),       // Bank 10
+            UByteArray(8192),       // Bank 11
+            UByteArray(8192),       // Bank 12
+            UByteArray(8192),       // Bank 13
+            UByteArray(8192),       // Bank 14
+            UByteArray(8192)        // Bank 15
+        )
+        private var exRAM = UByteArray(8192)
+        private var currentBank = 0
 
-        // TODO: Take switchable banking into account
         // TODO: Set up functionality to export exRAM as a binary save file
 
         fun read(addr: UShort): UByte {
@@ -78,6 +147,31 @@ object MemoryManager {
         fun write(addr: UShort, data: UByte) {
             val location = (addr - 0xA000u).toInt()
             exRAM[location] = data
+        }
+
+        /**
+         * Sets current working RAM bank. The current bank's data is saved to the corresponding section of
+         * exRamBanks, and exRAM is replaced with the new bank.
+         * @param bankNum the bank to switch to
+         */
+        fun setCurrentBank(bankNum: Int) {
+            if (bankNum in 0..15) {
+                // Save current values to the corresponding bank
+                exRamBanks[currentBank] = exRAM
+                // Swap banks
+                exRAM = exRamBanks[bankNum]
+                currentBank = bankNum
+            } else {
+                println("WARN: Tried to set exRAM bank to a bank that doesn't exist: $bankNum")
+            }
+        }
+
+        /**
+         * Returns an integer representing the current workng bank.
+         * @return Int representing current working exRAM bank
+         */
+        fun getCurrentBank(): Int {
+            return currentBank
         }
     }
 
@@ -211,7 +305,7 @@ object MemoryManager {
     // High RAM and the Interrupt Enable Register are directly controlled by the MemoryManager.
 
     private val highRAM = UByteArray(126)
-    private val intEnableReg: UByte = 0x00u         // Interrupt Enable Register
+    private var intEnableReg: UByte = 0x00u         // Interrupt Enable Register
 
     private val rom = Rom
     private val vRam = VideoRAM
@@ -263,6 +357,54 @@ object MemoryManager {
             }
             0xFFFFu.toUShort() -> {  // Sometimes Kotlin is weird about type inference
                 intEnableReg
+            }
+
+            else -> error("Tried to access an address that doesn't exist: ${addr.toUShort()}")
+        }
+    }
+
+    /**
+     * Sets a byte in memory according to the specified memory address.
+     * @param addr memory address to write to
+     * @param data data to write to memory
+     */
+    fun writeByte(addr: UShort, data: UByte) {
+        when (addr) {
+            in 0x0000u..0x7FFFu -> {
+                // ROM
+                println("WARN: Program tried to write to ROM")
+            }
+            in 0x8000u..0x9FFFu -> {
+                // Write to vRAM
+                vRam.write(addr, data)
+            }
+            in 0xA000u..0xBFFFu -> {
+                // Write to External RAM
+                exRam.write(addr, data)
+            }
+            in 0xC000u..0xFDFFu -> {
+                // Read from workRAM
+                workRam.write(addr, data)
+            }
+            in 0xFE00u..0xFE9Fu -> {
+                // Read from Sprite Attribute Table
+                spriteTab.write(addr, data)
+            }
+            in 0xFEA0u..0xFEFFu -> {
+                // Unusable address space
+                println("WARN: Program tried to access unusable value @ ${addr.toUShort()}")
+            }
+            in 0xFF00u..0xFF7Fu -> {
+                // Read from I/O
+                ioReg.write(addr, data)
+            }
+            in 0xFF80u..0xFFFEu -> {
+                // Write to High RAM (HRAM)
+                val location = (addr - 0xFF80u).toInt()
+                highRAM[location] = data
+            }
+            0xFFFFu.toUShort() -> {  // Sometimes Kotlin is weird about type inference
+                intEnableReg = data
             }
 
             else -> error("Tried to access an address that doesn't exist: ${addr.toUShort()}")
