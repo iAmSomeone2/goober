@@ -48,7 +48,7 @@ object Cpu {
          * @param reg the register to write to
          * @param data the data to write to the register
          */
-        fun setRegister(reg: Char, data: UByte) {
+        fun write(reg: Char, data: UByte) {
             registerMap[reg] = data
         }
 
@@ -57,7 +57,7 @@ object Cpu {
          * @param reg the register pair to write to
          * @param data the data to write to the register
          */
-        fun setRegister(reg: String, data: UShort) {
+        fun write(reg: String, data: UShort) {
             when (reg) {
                 "af","bc","de","hl" -> {
                     // Take the upper-byte and turn it into its own Ubyte
@@ -76,7 +76,7 @@ object Cpu {
          * @param reg the register to read from
          * @return a UByte containing the data from the register.
          */
-        fun readRegister(reg: Char): UByte {
+        fun read(reg: Char): UByte {
             return registerMap[reg] ?: 0x00u
         }
 
@@ -85,7 +85,7 @@ object Cpu {
          * @param reg the register combo to read from
          * @return a UShort containing the data from the register combo.
          */
-        fun readRegister(reg: String): UShort {
+        fun read(reg: String): UShort {
 
             val regData: UShort
 
@@ -114,13 +114,74 @@ object Cpu {
      * Loads a value from one register into another
      * @param outReg the register to write to
      * @param inReg the register to read from
+     * @return number of ticks for operation to complete
      */
-    private fun load8BitReg(outReg: Char, inReg: Char) {
+    private fun load8BitReg(outReg: Char, inReg: Char): Int {
         TODO()
     }
 
     private fun load8BitVal(output: String, input: String) {
         TODO()
+    }
+
+    /**
+     * Reads the value stored in the memory location that register BC points to and loads it into register A.
+     * @return number of ticks for operation to complete
+     */
+    private fun loadToAFromBCPtr(): Int {
+        val location: UShort = registers.read("bc")
+        registers.write('a', memory.readByte(location))
+        return 8
+    }
+
+    /**
+     * Reads the value stored in the memory location that register DE points to and loads it into register A.
+     * @return number of ticks for operation to complete
+     */
+    private fun loadToAFromDEPtr(): Int {
+        val location: UShort = registers.read("de")
+        registers.write('a', memory.readByte(location))
+        return 8
+    }
+
+    /**
+     * Reads the value stored in the memory location that the value of n points to and loads it into register A.
+     * @param n memory address to read from
+     * @return number of ticks for operation to complete
+     */
+    private fun loadToAFromNPtr(n: UByte): Int {
+        TODO()
+        // return 16
+    }
+
+    /**
+     * Reads the value stored in register A and writes it to the memory location pointed to by register BC.
+     * @return number of ticks for operation to complete
+     */
+    private fun loadToBCPtrFromA(): Int {
+        val location: UShort = registers.read("bc")
+        memory.writeByte(location, registers.read('a'))
+        return 8
+    }
+
+    /**
+     * Reads the value stored in register A and writes it to the memory location pointed to by register DE.
+     * @return number of ticks for operation to complete
+     */
+    private fun loadToDEPtrFromA(): Int {
+        val location: UShort = registers.read("de")
+        memory.writeByte(location, registers.read('a'))
+        return 8
+    }
+
+    /**
+     * Reads the value stored in register A and writes it to the memory location pointed to by n.
+     * @param n memory address to write to
+     * @return number of ticks for operation to complete
+     */
+    private fun loadToNPtrFromA(n: UByte): Int {
+        TODO()
+        //return 16
     }
 
     /**
@@ -131,7 +192,7 @@ object Cpu {
     private fun readIO(port: UByte): Int {
         // Do not forget to add FF00 to the port number.
         val location: UShort = (0xFF00u + port).toUShort()
-        registers.setRegister('a', memory.readByte(location))
+        registers.write('a', memory.readByte(location))
         return 12
     }
 
@@ -141,8 +202,8 @@ object Cpu {
      */
     private fun readIO(): Int {
         // Do not forget to add FF00 to the value from C
-        val location: UShort = (0xFF00u + registers.readRegister('c')).toUShort()
-        registers.setRegister('a', memory.readByte(location))
+        val location: UShort = (0xFF00u + registers.read('c')).toUShort()
+        registers.write('a', memory.readByte(location))
         return 8
     }
 
@@ -153,7 +214,7 @@ object Cpu {
      */
     private fun writeIO(port: UByte): Int {
         val location: UShort = (0xFF00u + port).toUShort()
-        memory.writeByte(location, registers.readRegister('a'))
+        memory.writeByte(location, registers.read('a'))
         return 12
     }
 
@@ -162,8 +223,8 @@ object Cpu {
      * @return number of ticks for operation to complete
      */
     private fun writeIO(): Int {
-        val location: UShort = (0xFF00u + registers.readRegister('c')).toUShort()
-        memory.writeByte(location, registers.readRegister('a'))
+        val location: UShort = (0xFF00u + registers.read('c')).toUShort()
+        memory.writeByte(location, registers.read('a'))
         return 8
     }
 }

@@ -27,61 +27,61 @@ class CpuTest {
         @Test fun `read defaults as bytes`() {
             val registers = Cpu.Registers
 
-            assertEquals(regADefault, registers.readRegister('a'))
-            assertEquals(regFDefault, registers.readRegister('f'))
-            assertEquals(regBDefault, registers.readRegister('b'))
-            assertEquals(regCDefault, registers.readRegister('c'))
-            assertEquals(regDDefault, registers.readRegister('d'))
-            assertEquals(regEDefault, registers.readRegister('e'))
-            assertEquals(regHDefault, registers.readRegister('h'))
-            assertEquals(regLDefault, registers.readRegister('l'))
+            assertEquals(regADefault, registers.read('a'))
+            assertEquals(regFDefault, registers.read('f'))
+            assertEquals(regBDefault, registers.read('b'))
+            assertEquals(regCDefault, registers.read('c'))
+            assertEquals(regDDefault, registers.read('d'))
+            assertEquals(regEDefault, registers.read('e'))
+            assertEquals(regHDefault, registers.read('h'))
+            assertEquals(regLDefault, registers.read('l'))
         }
 
         @Test fun `read defaults as shorts`() {
             val registers = Cpu.Registers
 
-            assertEquals(regAFDefault, registers.readRegister("af"))
-            assertEquals(regBCDefault, registers.readRegister("bc"))
-            assertEquals(regDEDefault, registers.readRegister("de"))
-            assertEquals(regHLDefault, registers.readRegister("hl"))
+            assertEquals(regAFDefault, registers.read("af"))
+            assertEquals(regBCDefault, registers.read("bc"))
+            assertEquals(regDEDefault, registers.read("de"))
+            assertEquals(regHLDefault, registers.read("hl"))
         }
 
         @Test fun `write byte to register and read back`() {
             val expectedByte: UByte = 0xEAu
             val registers = Cpu.Registers
 
-            registers.setRegister('a', expectedByte)
-            registers.setRegister('f', expectedByte)
-            registers.setRegister('b', expectedByte)
-            registers.setRegister('c', expectedByte)
-            registers.setRegister('d', expectedByte)
-            registers.setRegister('e', expectedByte)
-            registers.setRegister('h', expectedByte)
-            registers.setRegister('l', expectedByte)
+            registers.write('a', expectedByte)
+            registers.write('f', expectedByte)
+            registers.write('b', expectedByte)
+            registers.write('c', expectedByte)
+            registers.write('d', expectedByte)
+            registers.write('e', expectedByte)
+            registers.write('h', expectedByte)
+            registers.write('l', expectedByte)
 
-            assertEquals(expectedByte, registers.readRegister('a'))
-            assertEquals(expectedByte, registers.readRegister('f'))
-            assertEquals(expectedByte, registers.readRegister('b'))
-            assertEquals(expectedByte, registers.readRegister('c'))
-            assertEquals(expectedByte, registers.readRegister('d'))
-            assertEquals(expectedByte, registers.readRegister('e'))
-            assertEquals(expectedByte, registers.readRegister('h'))
-            assertEquals(expectedByte, registers.readRegister('l'))
+            assertEquals(expectedByte, registers.read('a'))
+            assertEquals(expectedByte, registers.read('f'))
+            assertEquals(expectedByte, registers.read('b'))
+            assertEquals(expectedByte, registers.read('c'))
+            assertEquals(expectedByte, registers.read('d'))
+            assertEquals(expectedByte, registers.read('e'))
+            assertEquals(expectedByte, registers.read('h'))
+            assertEquals(expectedByte, registers.read('l'))
         }
 
         @Test fun `write short to register and read back`() {
             val expectedShort: UShort = 0xEDDEu
             val registers = Cpu.Registers
 
-            registers.setRegister("af", expectedShort)
-            registers.setRegister("bc", expectedShort)
-            registers.setRegister("de", expectedShort)
-            registers.setRegister("hl", expectedShort)
+            registers.write("af", expectedShort)
+            registers.write("bc", expectedShort)
+            registers.write("de", expectedShort)
+            registers.write("hl", expectedShort)
 
-            assertEquals(expectedShort, registers.readRegister("af"))
-            assertEquals(expectedShort, registers.readRegister("bc"))
-            assertEquals(expectedShort, registers.readRegister("de"))
-            assertEquals(expectedShort, registers.readRegister("hl"))
+            assertEquals(expectedShort, registers.read("af"))
+            assertEquals(expectedShort, registers.read("bc"))
+            assertEquals(expectedShort, registers.read("de"))
+            assertEquals(expectedShort, registers.read("hl"))
         }
 
         @Test fun `set and get stackPointer`() {
