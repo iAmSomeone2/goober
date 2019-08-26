@@ -1,5 +1,7 @@
 package core
 
+import java.io.File
+
 @ExperimentalUnsignedTypes
 /**
  * Controls all memory access for the GameBoy CPU. Each logical section of the GameBoy's address space is separated
@@ -74,8 +76,21 @@ object MemoryManager {
      */
     private object Rom {
         // TODO: Figure out a good way to gracefully load ROM on emu load
-        private val bank00 = UByteArray(16_384)
-        private val bankEX = UByteArray(16_384)
+        private var bank00 = UByteArray(16_384)
+        private var bankNN = UByteArray(16_384)
+
+        private val bankList = mutableListOf<UByteArray>()
+        private var currentBank = 1
+
+        /**
+         * Loads the specified file into all of the ROM banks.
+         * Loading is based on file size and not value at 0x0148. This value is, however, used as a sanity check to
+         * confirm that the correct number of banks were allocated and loaded.
+         * @param romFile binary file to read the ROM data from
+         */
+        fun loadRom(romFile: File) {
+
+        }
 
         fun read(addr: UShort): UByte {
             return if (addr <= 0x3FFFu) {
@@ -83,7 +98,7 @@ object MemoryManager {
                 bank00[addr.toInt()]
             } else {
                 val location = (addr - 0x4000u).toInt()
-                bankEX[location]
+                bankNN[location]
             }
         }
 
