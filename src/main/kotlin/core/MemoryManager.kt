@@ -1,6 +1,8 @@
 package core
 
-import java.io.File
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.Path
 
 @ExperimentalUnsignedTypes
 /**
@@ -80,15 +82,39 @@ object MemoryManager {
         private var bankNN = UByteArray(16_384)
 
         private val bankList = mutableListOf<UByteArray>()
-        private var currentBank = 1
 
         /**
          * Loads the specified file into all of the ROM banks.
          * Loading is based on file size and not value at 0x0148. This value is, however, used as a sanity check to
          * confirm that the correct number of banks were allocated and loaded.
-         * @param romFile binary file to read the ROM data from
+         * @param romPath binary file to read the ROM data from
          */
-        fun loadRom(romFile: File) {
+        fun loadRom(romPath: Path) {
+            val fullRom: ByteArray = Files.readAllBytes(romPath)
+            // The values is fullRom will get converted to UBytes when they're put into banks.
+            val bankNum: Int = (fullRom.size / 16_384)   // 16KB
+            val expectedBanksHex: UByte = fullRom[0x0148].toUByte()
+            val expectedBanks: Int = (ROM_BANK_MAP[expectedBanksHex] ?: error("ROM size not mapped.")).toInt()
+
+            if (bankNum != expectedBanks && bankNum != 2) {
+                println("WARN: Actual ROM size does not match expected size.")
+                // I should probably do more with this later.
+            }
+
+            // Split the rom into banks and convert to UBytes
+            for (i in 0 until bankNum) {
+                val tempBank = UByteArray(16_384)
+                for (j in 0 until 16_384) {
+                    val fullRomLoc = (16_384 * i) + j
+                    val data: UByte = fullRom[fullRomLoc].toUByte()
+                    tempBank[j] = data
+                }
+
+                if (i == 0) {
+                    bank00 = tempBank
+                }
+                bankList.add(tempBank)
+            }
 
         }
 
@@ -103,10 +129,13 @@ object MemoryManager {
         }
 
         /**
-         * Sets which memory bank to use in place of bankEX
+         * Sets which memory bank to use in place of bankNN
+         * @param bankNum the bank to switch bankNN over to.
          */
-        fun setBank(bankNum: UInt) {
-            TODO()
+        fun setBank(bankNum: Int) {
+            if (bankNum in 1 until bankList.size) {
+                bankNN = bankList[bankNum]
+            }
         }
     }
 
@@ -328,6 +357,17 @@ object MemoryManager {
     private val workRam = WorkRAM
     private val spriteTab = SpriteAttribTable
     private val ioReg = IORegisters
+
+    /**
+     * Takes the ROM path as a string and converts it to a path before sending that information to the
+     * ROM object so that it may load the program ROM into its banks.
+     * @param romLoc location on disk to look for program ROM.
+     */
+    fun loadRomFromFile(romLoc: String) {
+        val romPath = FileSystems.getDefault().getPath(romLoc)
+        // TODO: Add code to deal with FileNotFound errors.
+        rom.loadRom(romPath)
+    }
 
     /**
      * Finds and returns the value from the specified memory address.
