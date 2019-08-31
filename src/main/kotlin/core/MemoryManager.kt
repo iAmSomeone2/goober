@@ -1,8 +1,8 @@
 package core
 
+import java.math.RoundingMode
 import java.nio.file.FileSystems
-import java.nio.file.Files
-import java.nio.file.Path
+
 
 @ExperimentalUnsignedTypes
 /**
@@ -10,134 +10,7 @@ import java.nio.file.Path
  * out into its own sub-object, so that the architecture will be easier to manage and debug.
  */
 object MemoryManager {
-
-    private val CART_TYPE_MAP = mapOf(
-        Pair<UByte, String>(0x00u, "ROM_ONLY"),
-        Pair<UByte, String>(0x01u, "MBC1"),
-        Pair<UByte, String>(0x02u, "MBC1+RAM"),
-        Pair<UByte, String>(0x03u, "MBC1+RAM+BAT"),
-        Pair<UByte, String>(0x05u, "MBC2"),
-        Pair<UByte, String>(0x06u, "MBC2+BAT"),
-        Pair<UByte, String>(0x08u, "ROM+RAM"),
-        Pair<UByte, String>(0x09u, "ROM+RAM+BAT"),
-        Pair<UByte, String>(0x0Bu, "MMM01"),
-        Pair<UByte, String>(0x0Cu, "MMM01+RAM"),
-        Pair<UByte, String>(0x0Du, "MMM01+RAM+BAT"),
-        Pair<UByte, String>(0x0Fu, "MBC3+TIMER+BAT"),
-        Pair<UByte, String>(0x10u, "MBC3+TIMER+RAM+BAT"),
-        Pair<UByte, String>(0x11u, "MBC3"),
-        Pair<UByte, String>(0x12u, "MBC3+RAM"),
-        Pair<UByte, String>(0x13u, "MBC3+RAM+BAT"),
-        Pair<UByte, String>(0x19u, "MBC5"),
-        Pair<UByte, String>(0x1Au, "MBC5+RAM"),
-        Pair<UByte, String>(0x1Bu, "MBC5+RAM+BAT"),
-        Pair<UByte, String>(0x1Cu, "MBC5+RUMBLE"),
-        Pair<UByte, String>(0x1Du, "MBC5+RUMBLE+RAM"),
-        Pair<UByte, String>(0x1Eu, "MBC5+RUMBLE+RAM+BAT"),
-        Pair<UByte, String>(0x20u, "MBC6"),
-        Pair<UByte, String>(0x22u, "MBC7+SENSOR+RUMBLE+RAM+BAT"),
-        Pair<UByte, String>(0xFCu, "CAMERA"),
-        Pair<UByte, String>(0xFDu, "BANDAI_TAMA5"),
-        Pair<UByte, String>(0xFEu, "HuC3"),
-        Pair<UByte, String>(0xFFu, "HuC1+RAM+BAT")
-    )
-
-    // Values for ROM_BANK_MAP are the number of banks the ROM requires.
-    private val ROM_BANK_MAP = mapOf(
-        Pair<UByte, Int>(0x00u, 0),
-        Pair<UByte, Int>(0x01u, 4),
-        Pair<UByte, Int>(0x02u, 8),
-        Pair<UByte, Int>(0x03u, 16),
-        Pair<UByte, Int>(0x04u, 32),
-        Pair<UByte, Int>(0x05u, 64),
-        Pair<UByte, Int>(0x06u, 128),
-        Pair<UByte, Int>(0x07u, 256),
-        Pair<UByte, Int>(0x08u, 512),
-        Pair<UByte, Int>(0x52u, 72),
-        Pair<UByte, Int>(0x53u, 80),
-        Pair<UByte, Int>(0x54u, 96)
-    )
-
-    // Values for RAM_SIZE_MAP are in kilobytes.
-    // To get number of banks, divide the value by 8.
-    private val RAM_SIZE_MAP = mapOf(
-        Pair<UByte, Int>(0x00u, 0),
-        Pair<UByte, Int>(0x01u, 2),
-        Pair<UByte, Int>(0x02u, 8),
-        Pair<UByte, Int>(0x03u, 32),
-        Pair<UByte, Int>(0x04u, 128),
-        Pair<UByte, Int>(0x05u, 64)
-    )
-
     // TODO: Set up functionality to export all memory as a save state.
-
-    /**
-     * The address space mapped to the game cartridge or other programs. This section is divided up into two sub-
-     * sections, logically: 16KB ROM bank 00 and 16KB ROM bank 01~NN. The latter of these can be switched out with other
-     * banks on the cartridge to allow for running programs larger than the GB's address space allows.
-     */
-    private object Rom {
-        // TODO: Figure out a good way to gracefully load ROM on emu load
-        private var bank00 = UByteArray(16_384)
-        private var bankNN = UByteArray(16_384)
-
-        private val bankList = mutableListOf<UByteArray>()
-
-        /**
-         * Loads the specified file into all of the ROM banks.
-         * Loading is based on file size and not value at 0x0148. This value is, however, used as a sanity check to
-         * confirm that the correct number of banks were allocated and loaded.
-         * @param romPath binary file to read the ROM data from
-         */
-        fun loadRom(romPath: Path) {
-            val fullRom: ByteArray = Files.readAllBytes(romPath)
-            // The values is fullRom will get converted to UBytes when they're put into banks.
-            val bankNum: Int = (fullRom.size / 16_384)   // 16KB
-            val expectedBanksHex: UByte = fullRom[0x0148].toUByte()
-            val expectedBanks: Int = (ROM_BANK_MAP[expectedBanksHex] ?: error("ROM size not mapped.")).toInt()
-
-            if (bankNum != expectedBanks && bankNum != 2) {
-                println("WARN: Actual ROM size does not match expected size.")
-                // I should probably do more with this later.
-            }
-
-            // Split the rom into banks and convert to UBytes
-            for (i in 0 until bankNum) {
-                val tempBank = UByteArray(16_384)
-                for (j in 0 until 16_384) {
-                    val fullRomLoc = (16_384 * i) + j
-                    val data: UByte = fullRom[fullRomLoc].toUByte()
-                    tempBank[j] = data
-                }
-
-                if (i == 0) {
-                    bank00 = tempBank
-                }
-                bankList.add(tempBank)
-            }
-
-        }
-
-        fun read(addr: UShort): UByte {
-            return if (addr <= 0x3FFFu) {
-                // Read from bank00
-                bank00[addr.toInt()]
-            } else {
-                val location = (addr - 0x4000u).toInt()
-                bankNN[location]
-            }
-        }
-
-        /**
-         * Sets which memory bank to use in place of bankNN
-         * @param bankNum the bank to switch bankNN over to.
-         */
-        fun setBank(bankNum: Int) {
-            if (bankNum in 1 until bankList.size) {
-                bankNN = bankList[bankNum]
-            }
-        }
-    }
 
     /**
      * 8KB of address space reserved for video display.
@@ -351,12 +224,15 @@ object MemoryManager {
     private val highRAM = UByteArray(126)
     private var intEnableReg: UByte = 0x00u         // Interrupt Enable Register
 
-    private val rom = Rom
-    private val vRam = VideoRAM
-    private val exRam = ExternalRAM
-    private val workRam = WorkRAM
-    private val spriteTab = SpriteAttribTable
-    private val ioReg = IORegisters
+    private val rom: Rom = Rom
+    private val vRam: VideoRAM = VideoRAM
+    private val exRam: ExternalRAM = ExternalRAM
+    private val workRam: WorkRAM = WorkRAM
+    private val spriteTab: SpriteAttribTable = SpriteAttribTable
+    private val ioReg: IORegisters = IORegisters
+
+    // TODO: Determine number of ExRAM banks to create based on what the ROM specifies.
+
 
     /**
      * Takes the ROM path as a string and converts it to a path before sending that information to the

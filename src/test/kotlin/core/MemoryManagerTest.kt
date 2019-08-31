@@ -11,6 +11,7 @@ import kotlin.test.assertEquals
 import java.time.LocalDateTime
 
 private const val TEST_FILE_NAME: String = "randomBytes"
+private const val TETRIS_LOC: String = "/home/bdavidson/Documents/GB_ROMs/Tetris.gb"
 
 @ExperimentalUnsignedTypes
 class MemoryManagerTest {
@@ -118,7 +119,7 @@ class MemoryManagerTest {
     }
 
     @Test fun `load random binary data as ROM file`() {
-        val bankNum = 512 // Max size
+        val bankNum = 8 // Max size
         val testFile = makeTestFile(bankNum)
 
         val mmu = MemoryManager
@@ -166,5 +167,12 @@ class MemoryManagerTest {
 
         outStream.close()
         return tempFile
+    }
+
+    @Test fun `load binary data from legit ROM file`() {
+        val tetrisFile: File = File(TETRIS_LOC)
+        val mmu = MemoryManager
+        mmu.loadRomFromFile(tetrisFile.absolutePath)
+
     }
 }
